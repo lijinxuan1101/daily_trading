@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# Data (本地数据库不上传)
+data/trading.db
+
+# Node
+frontend/node_modules/
+
+# Vite build output (可由 CI 重新构建)
+static/dist/
+
+# OS
+.DS_Store
