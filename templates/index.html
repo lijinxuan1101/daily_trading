@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交易日志</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            clay:  { DEFAULT: '#C8622A', light: '#E8916A', dark: '#A04E1E' },
+            paper: { DEFAULT: '#F5F1EB', dark: '#EDE8DF' },
+            ink:   { DEFAULT: '#1C1917', soft: '#292420' },
+            smoke: '#E5DDD0',
+            ash:   '#9C8B7A',
+            cream: '#FDFAF6',
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', 'serif'],
+            body:    ['Lora', 'serif'],
+            ui:      ['"DM Sans"', 'sans-serif'],
+            mono:    ['"Space Mono"', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="font-ui bg-paper text-ink" x-data="app()" x-init="init()">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LAYOUT
+══════════════════════════════════════════════════════════════════ -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ── SIDEBAR ───────────────────────────────────────────────── -->
+  <aside class="sidebar w-60 flex-shrink-0 flex flex-col">
+
+    <!-- Logo -->
+    <div class="px-6 pt-7 pb-5 border-b border-white/5">
+      <div class="flex items-center gap-2.5">
+        <div class="w-6 h-6 rounded-full bg-clay flex items-center justify-center flex-shrink-0">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 9 L6 3 L10 9" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 7 L8 7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="font-display text-[15px] font-semibold text-white/90 tracking-wide">交易日志</span>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-4 space-y-0.5">
+      <button @click="navigate('home')" :class="page==='home' ? 'nav-item active' : 'nav-item'">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1.5 6L7.5 1.5L13.5 6V13H9.5V9.5H5.5V13H1.5V6Z"/>
+        </svg>
+        <span>首页</span>
+      </button>
+
+      <div class="pt-3 pb-1 px-3">
+        <span class="text-[10px] font-semibold uppercase tracking-widest text-white/20">新建</span>
+      </div>
+
+      <button @click="navigate('new-pre-market')" :class="page==='new-pre-market' ? 'nav-item active' : 'nav-item'">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1.5" y="1.5" width="12" height="12" rx="2"/>
+          <path d="M7.5 4.5V10.5M4.5 7.5H10.5"/>
+        </svg>
+        <span>盘前分析</span>
+      </button>
+
+      <button @click="navigate('new-trade-log')" :class="page==='new-trade-log' ? 'nav-item active' : 'nav-item'">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 4h11M2 7.5h7M2 11h5"/>
+          <circle cx="12" cy="11" r="2.5"/>
+          <path d="M12 9.5V11h1.5" stroke-linecap="round"/>
+        </svg>
+        <span>交易日志</span>
+      </button>
+    </nav>
+
+    <!-- Bottom stats -->
+    <div class="px-4 py-4 border-t border-white/5">
+      <div class="flex justify-between text-[11px] text-white/30 font-mono">
+        <span>记录 <span class="text-white/50" x-text="preMarketList.length + tradeLogList.length"></span></span>
+        <span x-text="todayStr"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ──────────────────────────────────────────────────── -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- ════════════ HOME ════════════ -->
+    <div x-show="page === 'home'" x-transition:enter="fade-in">
+      <div class="max-w-4xl mx-auto px-10 py-10">
+
+        <!-- Header -->
+        <div class="mb-8">
+          <h1 class="font-display text-3xl font-semibold text-ink mb-1" x-text="greeting"></h1>
+          <p class="text-ash text-sm" x-text="fullDateStr"></p>
+        </div>
+
+        <!-- Stats row -->
+        <div class="grid grid-cols-3 gap-4 mb-8">
+          <div class="stat-card">
+            <div class="stat-label">盘前分析</div>
+            <div class="stat-value" x-text="preMarketList.length"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">交易日志</div>
+            <div class="stat-value" x-text="tradeLogList.length"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">本周记录</div>
+            <div class="stat-value" x-text="weekCount"></div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 mb-6 border-b border-smoke">
+          <button @click="activeTab='pre-market'" :class="activeTab==='pre-market' ? 'tab active' : 'tab'">
+            盘前分析
+            <span class="tab-count" x-text="preMarketList.length"></span>
+          </button>
+          <button @click="activeTab='trade-logs'" :class="activeTab==='trade-logs' ? 'tab active' : 'tab'">
+            交易日志
+            <span class="tab-count" x-text="tradeLogList.length"></span>
+          </button>
+        </div>
+
+        <!-- Pre-market list -->
+        <div x-show="activeTab === 'pre-market'">
+          <template x-if="preMarketList.length === 0">
+            <div class="empty-state">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" class="text-smoke mx-auto mb-3">
+                <rect x="6" y="6" width="28" height="28" rx="4" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M13 20h14M13 14h8M13 26h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <p class="text-ash text-sm">还没有盘前分析记录</p>
+              <button @click="navigate('new-pre-market')" class="mt-4 btn-primary text-sm">新建盘前分析</button>
+            </div>
+          </template>
+          <div class="grid gap-3">
+            <template x-for="item in preMarketList" :key="item.date">
+              <div class="entry-card" @click="viewPreMarket(item.date)">
+                <div class="flex items-start justify-between">
+                  <div>
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="font-mono text-sm font-medium text-ink" x-text="item.date"></span>
+                      <span class="text-xs text-ash" x-text="item.weekday ? '周'+item.weekday : ''"></span>
+                      <span class="trend-badge" x-show="item.trend" x-text="item.trend"
+                            :class="{
+                              'trend-bull': item.trend==='强势',
+                              'trend-bear': item.trend==='偏弱',
+                              'trend-neutral': item.trend==='震荡'
+                            }"></span>
+                    </div>
+                    <p class="text-sm text-ash line-clamp-2 leading-relaxed" x-text="item.conclusion || '暂无结论'"></p>
+                  </div>
+                  <svg class="flex-shrink-0 mt-1 text-smoke" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 3l5 5-5 5"/>
+                  </svg>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Trade logs list -->
+        <div x-show="activeTab === 'trade-logs'">
+          <template x-if="tradeLogList.length === 0">
+            <div class="empty-state">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" class="text-smoke mx-auto mb-3">
+                <circle cx="20" cy="20" r="14" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M20 13v7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <p class="text-ash text-sm">还没有交易日志记录</p>
+              <button @click="navigate('new-trade-log')" class="mt-4 btn-primary text-sm">新建交易日志</button>
+            </div>
+          </template>
+          <div class="grid gap-3">
+            <template x-for="item in tradeLogList" :key="item.id">
+              <div class="entry-card" @click="viewTradeLog(item.id)">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="font-display text-base font-semibold" x-text="item.ticker"></span>
+                      <span class="font-mono text-xs text-ash" x-text="item.ticker_code"></span>
+                      <span class="direction-badge"
+                            :class="item.direction==='买入'||item.direction==='加仓' ? 'dir-buy' : 'dir-sell'"
+                            x-text="item.direction"></span>
+                      <span x-show="item.result" class="result-badge"
+                            :class="item.result==='盈利' ? 'res-profit' : item.result==='亏损' ? 'res-loss' : 'res-break'"
+                            x-text="item.result"></span>
+                    </div>
+                    <div class="flex items-center gap-4 text-xs text-ash">
+                      <span x-text="item.date"></span>
+                      <span x-show="item.price">成交价 <span class="font-mono text-ink/70" x-text="'¥'+item.price"></span></span>
+                      <span x-show="item.pnl_pct" :class="item.pnl_pct && parseFloat(item.pnl_pct)>=0 ? 'text-emerald-600' : 'text-red-500'" x-text="item.pnl_pct ? item.pnl_pct+'%' : ''"></span>
+                    </div>
+                  </div>
+                  <svg class="flex-shrink-0 mt-1 text-smoke" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 3l5 5-5 5"/>
+                  </svg>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ════════════ NEW PRE-MARKET ════════════ -->
+    <div x-show="page === 'new-pre-market'" x-transition:enter="fade-in">
+      <div class="max-w-3xl mx-auto px-10 py-10">
+
+        <div class="form-page-header">
+          <button @click="navigate('home')" class="back-btn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2L4 7l5 5"/></svg>
+            返回
+          </button>
+          <h1 class="font-display text-2xl font-semibold mt-3">盘前分析</h1>
+          <p class="text-ash text-sm mt-1">开盘前 30–60 分钟完成，理清思路、设定预期</p>
+        </div>
+
+        <form @submit.prevent="submitPreMarket()">
+
+          <!-- 日期 -->
+          <div class="form-section">
+            <div class="flex gap-4">
+              <div class="form-group flex-1">
+                <label class="form-label">日期</label>
+                <input type="date" x-model="pmForm.date" class="form-input">
+              </div>
+              <div class="form-group w-28">
+                <label class="form-label">星期</label>
+                <select x-model="pmForm.weekday" class="form-input">
+                  <option value="">—</option>
+                  <template x-for="d in ['一','二','三','四','五','六','日']">
+                    <option :value="d" x-text="'周'+d"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 一、隔夜外盘 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">一</span>隔夜外盘</div>
+            <div class="overflow-x-auto">
+              <table class="form-table">
+                <thead>
+                  <tr>
+                    <th>市场</th>
+                    <th>涨跌幅</th>
+                    <th>关键信息</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="mkt in pmForm.markets" :key="mkt.key">
+                    <tr>
+                      <td class="font-medium text-ink/80 w-32" x-text="mkt.label"></td>
+                      <td>
+                        <input type="text" x-model="mkt.change_pct" class="form-input-inline w-24" placeholder="如 +1.2%">
+                      </td>
+                      <td>
+                        <input type="text" x-model="mkt.notes" class="form-input-inline w-full" placeholder="关键信息">
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <div class="form-group mt-4">
+              <label class="form-label">外盘对今日 A 股的潜在影响</label>
+              <div class="flex gap-2 mb-2">
+                <template x-for="opt in ['正面','中性','负面']">
+                  <button type="button"
+                    @click="pmForm.overseas_sentiment = opt"
+                    :class="pmForm.overseas_sentiment===opt ? 'tag-btn active' : 'tag-btn'"
+                    x-text="opt"></button>
+                </template>
+              </div>
+              <textarea x-model="pmForm.overseas_impact" class="form-textarea" rows="2" placeholder="简要说明影响逻辑…"></textarea>
+            </div>
+          </div>
+
+          <!-- 二、今日重要事件 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">二</span>今日重要事件</div>
+            <div class="space-y-3">
+              <template x-for="evt in pmForm.events" :key="evt.key">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" x-model="evt.checked" class="form-checkbox mt-0.5">
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-ink/80 mb-1" x-text="evt.label"></div>
+                    <input type="text" x-model="evt.value" class="form-input-inline w-full" :placeholder="evt.placeholder">
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 三、大盘研判 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">三</span>大盘研判</div>
+            <p class="text-xs text-ash mb-3">昨日收盘数据</p>
+            <div class="overflow-x-auto">
+              <table class="form-table">
+                <thead>
+                  <tr>
+                    <th>指数</th>
+                    <th>收盘价</th>
+                    <th>涨跌幅</th>
+                    <th>成交量</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="idx in pmForm.indices" :key="idx.key">
+                    <tr>
+                      <td class="font-medium text-ink/80 w-28" x-text="idx.label"></td>
+                      <td><input type="text" x-model="idx.close" class="form-input-inline w-24" placeholder="点位"></td>
+                      <td><input type="text" x-model="idx.change" class="form-input-inline w-20" placeholder="±%"></td>
+                      <td><input type="text" x-model="idx.volume" class="form-input-inline w-28" placeholder="亿元"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <div class="mt-5 grid grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">趋势方向</label>
+                <div class="flex gap-2">
+                  <template x-for="t in ['强势','震荡','偏弱']">
+                    <button type="button"
+                      @click="pmForm.trend = t"
+                      :class="pmForm.trend===t ? 'tag-btn active' : 'tag-btn'"
+                      x-text="t"></button>
+                  </template>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">量能预估</label>
+                <div class="flex gap-2">
+                  <template x-for="v in ['放量','持平','缩量']">
+                    <button type="button"
+                      @click="pmForm.volume_forecast = v"
+                      :class="pmForm.volume_forecast===v ? 'tag-btn active' : 'tag-btn'"
+                      x-text="v"></button>
+                  </template>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">关键支撑位</label>
+                <input type="text" x-model="pmForm.support" class="form-input" placeholder="点位">
+              </div>
+              <div class="form-group">
+                <label class="form-label">关键压力位</label>
+                <input type="text" x-model="pmForm.resistance" class="form-input" placeholder="点位">
+              </div>
+            </div>
+            <div class="form-group mt-2">
+              <label class="form-label">判断理由</label>
+              <textarea x-model="pmForm.trend_reason" class="form-textarea" rows="3" placeholder="在此填写判断依据…"></textarea>
+            </div>
+          </div>
+
+          <!-- 四、板块与热点 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">四</span>板块与热点</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">昨日强势板块</label>
+                <textarea x-model="pmForm.strong_sectors" class="form-textarea" rows="2" placeholder="板块名称…"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">今日预计延续方向</label>
+                <textarea x-model="pmForm.continued_direction" class="form-textarea" rows="2" placeholder="…"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">需要回避的板块</label>
+                <textarea x-model="pmForm.avoid_sectors" class="form-textarea" rows="2" placeholder="…"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">资金轮动方向判断</label>
+                <textarea x-model="pmForm.rotation" class="form-textarea" rows="2" placeholder="…"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- 五、持仓梳理 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">五</span>持仓梳理</div>
+            <template x-for="(pos, i) in pmForm.positions" :key="i">
+              <div class="position-card">
+                <div class="flex items-center justify-between mb-4">
+                  <span class="text-sm font-semibold text-ink/60">持仓 <span x-text="i+1"></span></span>
+                  <button type="button" @click="pmForm.positions.splice(i,1)" x-show="pmForm.positions.length > 1" class="icon-btn text-ash hover:text-red-400">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l9 9M11 2l-9 9"/></svg>
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                  <div class="form-group"><label class="form-label">标的名称</label><input type="text" x-model="pos.name" class="form-input" placeholder="名称"></div>
+                  <div class="form-group"><label class="form-label">代码</label><input type="text" x-model="pos.code" class="form-input" placeholder="000001"></div>
+                  <div class="form-group"><label class="form-label">持仓成本</label><input type="text" x-model="pos.cost" class="form-input" placeholder="¥"></div>
+                  <div class="form-group"><label class="form-label">当前浮盈/亏</label><input type="text" x-model="pos.pnl_pct" class="form-input" placeholder="%"></div>
+                  <div class="form-group"><label class="form-label">止损位</label><input type="text" x-model="pos.stop_loss" class="form-input" placeholder="¥"></div>
+                  <div class="form-group"><label class="form-label">今日关键价位（支撑/压力）</label><input type="text" x-model="pos.key_levels" class="form-input" placeholder="¥ / ¥"></div>
+                </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">今日操作意图</label>
+                  <div class="flex flex-wrap gap-2">
+                    <template x-for="intent in ['持有观望','逢高减仓','跌破止损卖出','择机加仓']">
+                      <button type="button" @click="pos.intent=intent" :class="pos.intent===intent ? 'tag-btn active' : 'tag-btn'" x-text="intent"></button>
+                    </template>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">触发条件</label>
+                  <textarea x-model="pos.trigger" class="form-textarea" rows="2" placeholder="如：缩量回踩均线不破则持有，放量跌破 XX 元则止损…"></textarea>
+                </div>
+              </div>
+            </template>
+            <button type="button" @click="pmForm.positions.push({name:'',code:'',cost:'',pnl_pct:'',stop_loss:'',key_levels:'',intent:'',trigger:''})" class="add-btn">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 1.5v10M1.5 6.5h10"/></svg>
+              添加持仓
+            </button>
+          </div>
+
+          <!-- 六、候选标的 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">六</span>候选标的</div>
+            <div class="overflow-x-auto">
+              <table class="form-table">
+                <thead>
+                  <tr>
+                    <th>标的</th>
+                    <th>代码</th>
+                    <th>关注理由</th>
+                    <th>入场条件</th>
+                    <th>仓位上限</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(cand, i) in pmForm.watchlist" :key="i">
+                    <tr>
+                      <td><input type="text" x-model="cand.ticker" class="form-input-inline w-20"></td>
+                      <td><input type="text" x-model="cand.code" class="form-input-inline w-20"></td>
+                      <td><input type="text" x-model="cand.reason" class="form-input-inline w-32"></td>
+                      <td><input type="text" x-model="cand.entry_condition" class="form-input-inline w-36"></td>
+                      <td><input type="text" x-model="cand.max_position" class="form-input-inline w-16" placeholder="%"></td>
+                      <td>
+                        <button type="button" @click="pmForm.watchlist.splice(i,1)" x-show="pmForm.watchlist.length>1" class="icon-btn text-ash hover:text-red-400">
+                          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 2l9 9M11 2l-9 9"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <button type="button" @click="pmForm.watchlist.push({ticker:'',code:'',reason:'',entry_condition:'',max_position:''})" class="add-btn mt-3">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 1.5v10M1.5 6.5h10"/></svg>
+              添加标的
+            </button>
+          </div>
+
+          <!-- 七、交易纪律 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">七</span>交易纪律提醒</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">今日最多操作（笔）</label>
+                <input type="number" x-model="pmForm.max_trades" class="form-input" min="1" placeholder="如 3">
+              </div>
+              <div class="form-group">
+                <label class="form-label">总仓位上限（%）</label>
+                <input type="number" x-model="pmForm.max_position_pct" class="form-input" min="1" max="100" placeholder="如 70">
+              </div>
+            </div>
+            <div class="form-group mt-2">
+              <label class="form-label">特别提醒</label>
+              <textarea x-model="pmForm.special_reminder" class="form-textarea" rows="2" placeholder="如：上周两次追高被套，今天开盘涨停不追…"></textarea>
+            </div>
+          </div>
+
+          <!-- 八、核心结论 -->
+          <div class="form-section">
+            <div class="section-title"><span class="section-num">八</span>今日核心结论</div>
+            <textarea x-model="pmForm.conclusion" class="form-textarea text-base" rows="4" placeholder="用 1–3 句话总结今天的操作基调，开盘后不要频繁推翻…"></textarea>
+          </div>
+
+          <!-- Submit -->
+          <div class="flex items-center justify-between pt-4 pb-12">
+            <button type="button" @click="navigate('home')" class="btn-ghost">取消</button>
+            <button type="submit" class="btn-primary" :disabled="submitting">
+              <span x-show="!submitting">保存盘前分析</span>
+              <span x-show="submitting">保存中…</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    <!-- ════════════ NEW TRADE LOG ════════════ -->
+    <div x-show="page === 'new-trade-log'" x-transition:enter="fade-in">
+      <div class="max-w-3xl mx-auto px-10 py-10">
+
+        <div class="form-page-header">
+          <button @click="navigate('home')" class="back-btn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2L4 7l5 5"/></svg>
+            返回
+          </button>
+          <h1 class="font-display text-2xl font-semibold mt-3">交易日志</h1>
+          <p class="text-ash text-sm mt-1">买入/加仓时填写基本信息；平仓后补填复盘总结</p>
+        </div>
+
+        <form @submit.prevent="submitTradeLog()">
+
+          <!-- 基本信息 -->
+          <div class="form-section">
+            <div class="section-title">基本信息</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">日期</label>
+                <input type="date" x-model="tlForm.date" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">账户</label>
+                <input type="text" x-model="tlForm.account" class="form-input" placeholder="账户名称">
+              </div>
+              <div class="form-group">
+                <label class="form-label">标的名称</label>
+                <input type="text" x-model="tlForm.ticker" class="form-input" placeholder="如：贵州茅台">
+              </div>
+              <div class="form-group">
+                <label class="form-label">股票代码</label>
+                <input type="text" x-model="tlForm.ticker_code" class="form-input" placeholder="如：600519">
+              </div>
+            </div>
+            <div class="form-group mt-2">
+              <label class="form-label">操作方向</label>
+              <div class="flex gap-2">
+                <template x-for="dir in ['买入','加仓','减仓','卖出']">
+                  <button type="button" @click="tlForm.direction=dir" :class="tlForm.direction===dir ? 'tag-btn active' : 'tag-btn'" x-text="dir"></button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- 交易详情 -->
+          <div class="form-section">
+            <div class="section-title">交易详情</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-group">
+                <label class="form-label">成交价格（¥）</label>
+                <input type="text" x-model="tlForm.price" class="form-input font-mono" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">成交数量（股）</label>
+                <input type="text" x-model="tlForm.quantity" class="form-input font-mono" placeholder="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">成交金额（¥）</label>
+                <input type="text" x-model="tlForm.amount" class="form-input font-mono" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">手续费（¥）</label>
+                <input type="text" x-model="tlForm.fee" class="form-input font-mono" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">实际成本（¥）</label>
+                <input type="text" x-model="tlForm.actual_cost" class="form-input font-mono" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">占总仓位比例（%）</label>
+                <input type="text" x-model="tlForm.position_pct" class="form-input font-mono" placeholder="0">
+              </div>
+              <div class="form-group col-span-2">
+                <label class="form-label">持仓均价（加减仓后）（¥）</label>
+                <input type="text" x-model="tlForm.avg_cost" class="form-input font-mono" placeholder="0.00">
+              </div>
+            </div>
+          </div>
+
+          <!-- 交易理由 -->
+          <div class="form-section">
+            <div class="section-title">交易理由</div>
+            <div class="form-group">
+              <label class="form-label">买入逻辑</label>
+              <textarea x-model="tlForm.buy_logic" class="form-textarea" rows="3" placeholder="用自己的话说清楚：为什么现在买？买的是什么预期？"></textarea>
+            </div>
+            <div class="mt-4">
+              <label class="form-label mb-3 block">参考依据</label>
+              <div class="space-y-2">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" x-model="tlForm.ref_tech" class="form-checkbox mt-0.5">
+                  <div class="flex-1"><div class="text-sm font-medium text-ink/80 mb-1">技术面</div><input type="text" x-model="tlForm.tech_reason" class="form-input-inline w-full" placeholder="技术分析依据…"></div>
+                </div>
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" x-model="tlForm.ref_fundamental" class="form-checkbox mt-0.5">
+                  <div class="flex-1"><div class="text-sm font-medium text-ink/80 mb-1">基本面</div><input type="text" x-model="tlForm.fundamental_reason" class="form-input-inline w-full" placeholder="基本面依据…"></div>
+                </div>
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" x-model="tlForm.ref_news" class="form-checkbox mt-0.5">
+                  <div class="flex-1"><div class="text-sm font-medium text-ink/80 mb-1">消息面</div><input type="text" x-model="tlForm.news_reason" class="form-input-inline w-full" placeholder="相关消息…"></div>
+                </div>
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" x-model="tlForm.ref_capital" class="form-checkbox mt-0.5">
+                  <div class="flex-1"><div class="text-sm font-medium text-ink/80 mb-1">资金面</div><input type="text" x-model="tlForm.capital_reason" class="form-input-inline w-full" placeholder="资金动向…"></div>
+                </div>
+              </div>
+            </div>
+            <div class="form-group mt-4">
+              <label class="form-label">风险提示</label>
+              <textarea x-model="tlForm.risk_note" class="form-textarea" rows="2" placeholder="什么情况说明这笔交易的逻辑被证伪？"></textarea>
+            </div>
+          </div>
+
+          <!-- 计划管理 -->
+          <div class="form-section">
+            <div class="section-title">计划管理</div>
+            <div class="overflow-x-auto">
+              <table class="form-table">
+                <thead>
+                  <tr><th>类型</th><th>价格（¥）</th><th>涨跌幅</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="font-medium text-red-600/80">止损位</td>
+                    <td><input type="text" x-model="tlForm.stop_loss" class="form-input-inline w-28 font-mono"></td>
+                    <td><input type="text" x-model="tlForm.stop_loss_pct" class="form-input-inline w-20 font-mono" placeholder="-%"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-medium text-emerald-600/80">目标一（减仓/止盈）</td>
+                    <td><input type="text" x-model="tlForm.target1" class="form-input-inline w-28 font-mono"></td>
+                    <td><input type="text" x-model="tlForm.target1_pct" class="form-input-inline w-20 font-mono" placeholder="+%"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-medium text-emerald-600/80">目标二（清仓）</td>
+                    <td><input type="text" x-model="tlForm.target2" class="form-input-inline w-28 font-mono"></td>
+                    <td><input type="text" x-model="tlForm.target2_pct" class="form-input-inline w-20 font-mono" placeholder="+%"></td>
+                  </tr>
+                  <tr>
+                    <td class="font-medium text-ink/60">最大可承受亏损</td>
+                    <td><input type="text" x-model="tlForm.max_loss" class="form-input-inline w-28 font-mono" placeholder="¥"></td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 纪律检查 -->
+          <div class="form-section">
+            <div class="section-title">交易纪律检查</div>
+            <div class="space-y-3">
+              <template x-for="rule in tlForm.discipline_rules" :key="rule.key">
+                <div class="flex items-center gap-3">
+                  <input type="checkbox" x-model="rule.checked" class="form-checkbox">
+                  <span class="text-sm text-ink/80" x-text="rule.label"></span>
+                </div>
+              </template>
+              <div class="flex items-start gap-3 pt-1">
+                <input type="checkbox" x-model="tlForm.d_custom_checked" class="form-checkbox mt-0.5">
+                <div class="flex-1">
+                  <input type="text" x-model="tlForm.d_custom" class="form-input-inline w-full" placeholder="其他规则…">
+                </div>
+              </div>
+            </div>
+            <div class="form-group mt-4">
+              <label class="form-label">违反项备注</label>
+              <textarea x-model="tlForm.discipline_note" class="form-textarea" rows="2" placeholder="无 / 说明原因…"></textarea>
+            </div>
+          </div>
+
+          <!-- 情绪与心态 -->
+          <div class="form-section">
+            <div class="section-title">情绪与心态</div>
+            <div class="form-group">
+              <label class="form-label">决策时的情绪状态</label>
+              <div class="flex flex-wrap gap-2">
+                <template x-for="emo in tlForm.emotions" :key="emo.key">
+                  <button type="button"
+                    @click="emo.checked = !emo.checked"
+                    :class="emo.checked ? 'tag-btn active' : 'tag-btn'"
+                    x-text="emo.label"></button>
+                </template>
+              </div>
+            </div>
+            <div class="form-group mt-4">
+              <label class="form-label">执行信心评分</label>
+              <div class="flex gap-2 items-center">
+                <template x-for="n in [1,2,3,4,5]">
+                  <button type="button" @click="tlForm.confidence=n"
+                    :class="tlForm.confidence>=n ? 'confidence-dot active' : 'confidence-dot'"
+                    x-text="n"></button>
+                </template>
+                <span class="text-sm text-ash ml-1" x-text="tlForm.confidence + ' / 5'"></span>
+              </div>
+            </div>
+            <div class="form-group mt-4">
+              <label class="form-label">入场前的市场感受</label>
+              <textarea x-model="tlForm.market_feeling" class="form-textarea" rows="2" placeholder="如：市场情绪偏乐观，板块轮动明显，但整体量能不足…"></textarea>
+            </div>
+          </div>
+
+          <!-- 复盘总结（可选）-->
+          <div class="form-section">
+            <div class="flex items-center justify-between mb-4">
+              <div class="section-title mb-0">复盘总结</div>
+              <span class="text-xs text-ash bg-paper px-2 py-0.5 rounded-full border border-smoke">平仓后填写</span>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div class="form-group">
+                <label class="form-label">卖出日期</label>
+                <input type="date" x-model="tlForm.sell_date" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">卖出价格（¥）</label>
+                <input type="text" x-model="tlForm.sell_price" class="form-input font-mono">
+              </div>
+              <div class="form-group">
+                <label class="form-label">持仓天数</label>
+                <input type="number" x-model="tlForm.hold_days" class="form-input font-mono" placeholder="天">
+              </div>
+              <div class="form-group">
+                <label class="form-label">盈亏金额（¥）</label>
+                <input type="text" x-model="tlForm.pnl_amount" class="form-input font-mono">
+              </div>
+              <div class="form-group">
+                <label class="form-label">盈亏百分比（%）</label>
+                <input type="text" x-model="tlForm.pnl_pct" class="form-input font-mono">
+              </div>
+              <div class="form-group">
+                <label class="form-label">结果</label>
+                <div class="flex gap-2">
+                  <template x-for="r in ['盈利','亏损','保本']">
+                    <button type="button" @click="tlForm.result=r" :class="tlForm.result===r ? 'tag-btn active' : 'tag-btn'" x-text="r"></button>
+                  </template>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-4">
+              <template x-for="(q, i) in tlForm.review_questions" :key="i">
+                <div class="form-group">
+                  <label class="form-label" x-text="(i+1)+'. '+q.question"></label>
+                  <textarea x-model="q.answer" class="form-textarea" rows="2" placeholder="在此填写…"></textarea>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div class="flex items-center justify-between pt-4 pb-12">
+            <button type="button" @click="navigate('home')" class="btn-ghost">取消</button>
+            <button type="submit" class="btn-primary" :disabled="submitting">
+              <span x-show="!submitting">保存交易日志</span>
+              <span x-show="submitting">保存中…</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    <!-- ════════════ VIEW PRE-MARKET ════════════ -->
+    <div x-show="page === 'view-pre-market'" x-transition:enter="fade-in">
+      <div class="max-w-3xl mx-auto px-10 py-10" x-show="currentEntry">
+        <div class="form-page-header">
+          <button @click="navigate('home')" class="back-btn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2L4 7l5 5"/></svg>
+            返回
+          </button>
+          <div class="flex items-center gap-3 mt-3">
+            <h1 class="font-display text-2xl font-semibold" x-text="currentEntry?.date"></h1>
+            <span class="text-ash" x-text="currentEntry?.weekday ? '周'+currentEntry.weekday : ''"></span>
+            <span class="trend-badge" x-show="currentEntry?.trend"
+                  :class="{'trend-bull': currentEntry?.trend==='强势','trend-bear': currentEntry?.trend==='偏弱','trend-neutral': currentEntry?.trend==='震荡'}"
+                  x-text="currentEntry?.trend"></span>
+          </div>
+          <p class="text-ash text-sm mt-1">盘前分析</p>
+        </div>
+
+        <template x-if="currentEntry">
+          <div class="space-y-6">
+
+            <!-- 核心结论 top -->
+            <template x-if="currentEntry.conclusion">
+              <div class="conclusion-banner">
+                <div class="text-xs font-semibold text-clay/80 uppercase tracking-widest mb-2">今日核心结论</div>
+                <p class="font-body text-base leading-relaxed text-ink" x-text="currentEntry.conclusion"></p>
+              </div>
+            </template>
+
+            <!-- 隔夜外盘 -->
+            <div class="view-section">
+              <div class="view-section-title">一、隔夜外盘</div>
+              <table class="view-table">
+                <thead><tr><th>市场</th><th>涨跌幅</th><th>关键信息</th></tr></thead>
+                <tbody>
+                  <template x-for="mkt in (currentEntry.markets || [])" :key="mkt.key">
+                    <tr x-show="mkt.change_pct || mkt.notes">
+                      <td x-text="mkt.label"></td>
+                      <td class="font-mono" :class="mkt.change_pct?.includes('-') ? 'text-red-500' : 'text-emerald-600'" x-text="mkt.change_pct || '—'"></td>
+                      <td x-text="mkt.notes || '—'"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <template x-if="currentEntry.overseas_impact">
+                <p class="mt-3 text-sm text-ink/80 leading-relaxed"><span class="text-ash">影响：</span><span x-text="currentEntry.overseas_sentiment ? '['+currentEntry.overseas_sentiment+'] ' : ''"></span><span x-text="currentEntry.overseas_impact"></span></p>
+              </template>
+            </div>
+
+            <!-- 大盘研判 -->
+            <div class="view-section">
+              <div class="view-section-title">三、大盘研判</div>
+              <table class="view-table">
+                <thead><tr><th>指数</th><th>收盘价</th><th>涨跌幅</th><th>成交量</th></tr></thead>
+                <tbody>
+                  <template x-for="idx in (currentEntry.indices || [])" :key="idx.key">
+                    <tr x-show="idx.close || idx.change">
+                      <td x-text="idx.label"></td>
+                      <td class="font-mono" x-text="idx.close || '—'"></td>
+                      <td class="font-mono" :class="idx.change?.includes('-') ? 'text-red-500' : 'text-emerald-600'" x-text="idx.change || '—'"></td>
+                      <td class="font-mono text-ash" x-text="idx.volume || '—'"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <div class="flex flex-wrap gap-4 mt-3 text-sm">
+                <span x-show="currentEntry.trend"><span class="text-ash">趋势：</span><span class="font-medium" x-text="currentEntry.trend"></span></span>
+                <span x-show="currentEntry.volume_forecast"><span class="text-ash">量能：</span><span class="font-medium" x-text="currentEntry.volume_forecast"></span></span>
+                <span x-show="currentEntry.support"><span class="text-ash">支撑：</span><span class="font-mono" x-text="currentEntry.support"></span></span>
+                <span x-show="currentEntry.resistance"><span class="text-ash">压力：</span><span class="font-mono" x-text="currentEntry.resistance"></span></span>
+              </div>
+              <template x-if="currentEntry.trend_reason">
+                <p class="mt-2 text-sm text-ink/80 leading-relaxed" x-text="currentEntry.trend_reason"></p>
+              </template>
+            </div>
+
+            <!-- 持仓 -->
+            <template x-if="currentEntry.positions?.length">
+              <div class="view-section">
+                <div class="view-section-title">五、持仓梳理</div>
+                <template x-for="(pos, i) in currentEntry.positions.filter(p => p.name)" :key="i">
+                  <div class="position-card mb-3">
+                    <div class="flex items-center gap-2 mb-3">
+                      <span class="font-display font-semibold" x-text="pos.name"></span>
+                      <span class="font-mono text-xs text-ash" x-text="pos.code"></span>
+                      <span x-show="pos.intent" class="tag-btn active text-xs" x-text="pos.intent"></span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-3 text-sm mb-2">
+                      <div><div class="text-ash text-xs">成本</div><div class="font-mono" x-text="pos.cost ? '¥'+pos.cost : '—'"></div></div>
+                      <div><div class="text-ash text-xs">浮盈亏</div><div class="font-mono" :class="pos.pnl_pct && parseFloat(pos.pnl_pct)<0 ? 'text-red-500' : 'text-emerald-600'" x-text="pos.pnl_pct ? pos.pnl_pct+'%' : '—'"></div></div>
+                      <div><div class="text-ash text-xs">止损位</div><div class="font-mono text-red-500/80" x-text="pos.stop_loss ? '¥'+pos.stop_loss : '—'"></div></div>
+                      <div><div class="text-ash text-xs">关键价位</div><div class="font-mono text-xs" x-text="pos.key_levels || '—'"></div></div>
+                    </div>
+                    <template x-if="pos.trigger">
+                      <p class="text-xs text-ash leading-relaxed" x-text="pos.trigger"></p>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ════════════ VIEW TRADE LOG ════════════ -->
+    <div x-show="page === 'view-trade-log'" x-transition:enter="fade-in">
+      <div class="max-w-3xl mx-auto px-10 py-10" x-show="currentEntry">
+        <div class="form-page-header">
+          <button @click="navigate('home')" class="back-btn">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2L4 7l5 5"/></svg>
+            返回
+          </button>
+          <div class="flex items-center gap-3 mt-3">
+            <h1 class="font-display text-2xl font-semibold" x-text="currentEntry?.ticker"></h1>
+            <span class="font-mono text-ash text-sm" x-text="currentEntry?.ticker_code"></span>
+            <span class="direction-badge" :class="currentEntry?.direction==='买入'||currentEntry?.direction==='加仓' ? 'dir-buy' : 'dir-sell'" x-text="currentEntry?.direction"></span>
+            <span x-show="currentEntry?.result" class="result-badge"
+                  :class="currentEntry?.result==='盈利' ? 'res-profit' : currentEntry?.result==='亏损' ? 'res-loss' : 'res-break'"
+                  x-text="currentEntry?.result"></span>
+          </div>
+          <p class="text-ash text-sm mt-1" x-text="currentEntry?.date"></p>
+        </div>
+
+        <template x-if="currentEntry">
+          <div class="space-y-6">
+
+            <!-- 关键数字 -->
+            <div class="grid grid-cols-4 gap-3">
+              <div class="stat-card">
+                <div class="stat-label">成交价</div>
+                <div class="stat-value font-mono text-lg" x-text="currentEntry.price ? '¥'+currentEntry.price : '—'"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">成交量</div>
+                <div class="stat-value font-mono text-lg" x-text="currentEntry.quantity ? currentEntry.quantity+'股' : '—'"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">止损位</div>
+                <div class="stat-value font-mono text-lg text-red-500/80" x-text="currentEntry.stop_loss ? '¥'+currentEntry.stop_loss : '—'"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">盈亏</div>
+                <div class="stat-value font-mono text-lg" :class="currentEntry.pnl_pct && parseFloat(currentEntry.pnl_pct)>=0 ? 'text-emerald-600' : 'text-red-500'" x-text="currentEntry.pnl_pct ? currentEntry.pnl_pct+'%' : '—'"></div>
+              </div>
+            </div>
+
+            <!-- 买入逻辑 -->
+            <div class="view-section">
+              <div class="view-section-title">买入逻辑</div>
+              <p class="font-body text-sm leading-relaxed" x-text="currentEntry.buy_logic || '—'"></p>
+            </div>
+
+            <!-- 计划管理 -->
+            <div class="view-section">
+              <div class="view-section-title">计划管理</div>
+              <table class="view-table">
+                <thead><tr><th>类型</th><th>价格</th><th>幅度</th></tr></thead>
+                <tbody>
+                  <tr x-show="currentEntry.stop_loss">
+                    <td class="text-red-600/80">止损位</td>
+                    <td class="font-mono" x-text="'¥'+currentEntry.stop_loss"></td>
+                    <td class="font-mono text-red-500" x-text="currentEntry.stop_loss_pct || '—'"></td>
+                  </tr>
+                  <tr x-show="currentEntry.target1">
+                    <td class="text-emerald-600/80">目标一</td>
+                    <td class="font-mono" x-text="'¥'+currentEntry.target1"></td>
+                    <td class="font-mono text-emerald-600" x-text="currentEntry.target1_pct || '—'"></td>
+                  </tr>
+                  <tr x-show="currentEntry.target2">
+                    <td class="text-emerald-600/80">目标二</td>
+                    <td class="font-mono" x-text="'¥'+currentEntry.target2"></td>
+                    <td class="font-mono text-emerald-600" x-text="currentEntry.target2_pct || '—'"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 复盘 -->
+            <template x-if="currentEntry.result">
+              <div class="view-section">
+                <div class="view-section-title">复盘总结</div>
+                <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+                  <div><div class="text-ash text-xs">卖出价格</div><div class="font-mono" x-text="currentEntry.sell_price ? '¥'+currentEntry.sell_price : '—'"></div></div>
+                  <div><div class="text-ash text-xs">持仓天数</div><div class="font-mono" x-text="currentEntry.hold_days ? currentEntry.hold_days+'天' : '—'"></div></div>
+                  <div><div class="text-ash text-xs">盈亏金额</div><div class="font-mono" :class="currentEntry.pnl_amount && parseFloat(currentEntry.pnl_amount)>=0 ? 'text-emerald-600' : 'text-red-500'" x-text="currentEntry.pnl_amount ? '¥'+currentEntry.pnl_amount : '—'"></div></div>
+                </div>
+                <template x-for="(q, i) in (currentEntry.review_questions || []).filter(q=>q.answer)" :key="i">
+                  <div class="mb-4">
+                    <div class="text-xs font-semibold text-ash mb-1" x-text="(i+1)+'. '+q.question"></div>
+                    <p class="font-body text-sm leading-relaxed" x-text="q.answer"></p>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div x-show="loading" class="fixed inset-0 bg-paper/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast.show" x-transition:enter="slide-up" x-transition:leave="fade-out"
+         class="fixed bottom-6 right-6 z-50">
+      <div class="toast" :class="toast.type === 'error' ? 'toast-error' : 'toast-success'" x-text="toast.message"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ALPINE APP
+══════════════════════════════════════════════════════════════════ -->
+<script>
+function app() {
+  return {
+    page: 'home',
+    activeTab: 'pre-market',
+    preMarketList: [],
+    tradeLogList: [],
+    currentEntry: null,
+    loading: false,
+    submitting: false,
+    toast: { show: false, message: '', type: 'success' },
+    pmForm: {},
+    tlForm: {},
+
+    get todayStr() {
+      return new Date().toISOString().split('T')[0];
+    },
+    get fullDateStr() {
+      const d = new Date();
+      const days = ['日','一','二','三','四','五','六'];
+      return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日，周${days[d.getDay()]}`;
+    },
+    get greeting() {
+      const h = new Date().getHours();
+      if (h < 6)  return '夜深了';
+      if (h < 9)  return '早上好';
+      if (h < 12) return '上午好';
+      if (h < 14) return '午盘时间';
+      if (h < 18) return '下午好';
+      return '收盘了，做个复盘吧';
+    },
+    get weekCount() {
+      const now = new Date();
+      const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - dayOfWeek);
+      monday.setHours(0, 0, 0, 0);
+      const mondayStr = monday.toISOString().split('T')[0];
+      const pmCount = this.preMarketList.filter(e => e.date >= mondayStr).length;
+      const tlCount = this.tradeLogList.filter(e => e.date >= mondayStr).length;
+      return pmCount + tlCount;
+    },
+
+    async init() {
+      this.pmForm = defaultPMForm();
+      this.tlForm = defaultTLForm();
+      await this.loadLists();
+    },
+
+    async loadLists() {
+      this.loading = true;
+      try {
+        const [pm, tl] = await Promise.all([
+          fetch('/api/pre-market').then(r => r.json()),
+          fetch('/api/trade-logs').then(r => r.json()),
+        ]);
+        this.preMarketList = pm;
+        this.tradeLogList = tl;
+      } catch(e) {
+        this.showToast('加载失败', 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    navigate(p) {
+      if (p === 'new-pre-market') this.pmForm = defaultPMForm();
+      if (p === 'new-trade-log') this.tlForm = defaultTLForm();
+      this.page = p;
+      window.scrollTo(0, 0);
+    },
+
+    async viewPreMarket(date) {
+      this.loading = true;
+      try {
+        const data = await fetch(`/api/pre-market/${date}`).then(r => r.json());
+        this.currentEntry = data;
+        this.page = 'view-pre-market';
+        window.scrollTo(0, 0);
+      } catch(e) {
+        this.showToast('加载失败', 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async viewTradeLog(id) {
+      this.loading = true;
+      try {
+        const data = await fetch(`/api/trade-logs/${id}`).then(r => r.json());
+        this.currentEntry = data;
+        this.page = 'view-trade-log';
+        window.scrollTo(0, 0);
+      } catch(e) {
+        this.showToast('加载失败', 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async submitPreMarket() {
+      if (!this.pmForm.date) { this.showToast('请填写日期', 'error'); return; }
+      this.submitting = true;
+      try {
+        await fetch('/api/pre-market', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.pmForm),
+        });
+        await this.loadLists();
+        this.showToast('盘前分析已保存');
+        this.navigate('home');
+        this.activeTab = 'pre-market';
+      } catch(e) {
+        this.showToast('保存失败', 'error');
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    async submitTradeLog() {
+      if (!this.tlForm.date || !this.tlForm.ticker) { this.showToast('请填写日期和标的', 'error'); return; }
+      this.submitting = true;
+      try {
+        await fetch('/api/trade-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.tlForm),
+        });
+        await this.loadLists();
+        this.showToast('交易日志已保存');
+        this.navigate('home');
+        this.activeTab = 'trade-logs';
+      } catch(e) {
+        this.showToast('保存失败', 'error');
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    showToast(message, type = 'success') {
+      this.toast = { show: true, message, type };
+      setTimeout(() => { this.toast.show = false; }, 2800);
+    },
+  };
+}
+
+function defaultPMForm() {
+  const today = new Date();
+  const days = ['日','一','二','三','四','五','六'];
+  return {
+    date: today.toISOString().split('T')[0],
+    weekday: days[today.getDay()],
+    markets: [
+      { key: 'us',     label: '美股（道/纳/标）', change_pct: '', notes: '' },
+      { key: 'hk',     label: '港股（恒指）',      change_pct: '', notes: '' },
+      { key: 'rmb',    label: '人民币汇率',         change_pct: '', notes: '' },
+      { key: 'oil',    label: '原油',               change_pct: '', notes: '' },
+      { key: 'gold',   label: '黄金',               change_pct: '', notes: '' },
+      { key: 'copper', label: '铜',                 change_pct: '', notes: '' },
+    ],
+    overseas_sentiment: '',
+    overseas_impact: '',
+    events: [
+      { key: 'macro',    label: '宏观数据发布',      placeholder: 'CPI、PMI、社融等…', checked: false, value: '' },
+      { key: 'meetings', label: '重要会议/政策窗口', placeholder: '…',               checked: false, value: '' },
+      { key: 'announce', label: '持仓公司公告/财报', placeholder: '…',               checked: false, value: '' },
+      { key: 'policy',   label: '行业政策/监管消息', placeholder: '…',               checked: false, value: '' },
+      { key: 'other',    label: '其他',              placeholder: '…',               checked: false, value: '' },
+    ],
+    indices: [
+      { key: 'sh',    label: '上证指数', close: '', change: '', volume: '' },
+      { key: 'sz',    label: '深证成指', close: '', change: '', volume: '' },
+      { key: 'cyb',   label: '创业板指', close: '', change: '', volume: '' },
+      { key: 'north', label: '北向资金', close: '', change: '', volume: '' },
+    ],
+    trend: '',
+    volume_forecast: '',
+    support: '',
+    resistance: '',
+    trend_reason: '',
+    strong_sectors: '',
+    continued_direction: '',
+    avoid_sectors: '',
+    rotation: '',
+    positions: [{ name:'', code:'', cost:'', pnl_pct:'', stop_loss:'', key_levels:'', intent:'', trigger:'' }],
+    watchlist: [{ ticker:'', code:'', reason:'', entry_condition:'', max_position:'' }],
+    max_trades: '',
+    max_position_pct: '',
+    special_reminder: '',
+    conclusion: '',
+  };
+}
+
+function defaultTLForm() {
+  return {
+    date: new Date().toISOString().split('T')[0],
+    ticker: '', ticker_code: '', direction: '买入', account: '',
+    price: '', quantity: '', amount: '', fee: '', actual_cost: '', position_pct: '', avg_cost: '',
+    buy_logic: '',
+    ref_tech: false, tech_reason: '',
+    ref_fundamental: false, fundamental_reason: '',
+    ref_news: false, news_reason: '',
+    ref_capital: false, capital_reason: '',
+    risk_note: '',
+    stop_loss: '', stop_loss_pct: '',
+    target1: '', target1_pct: '',
+    target2: '', target2_pct: '',
+    max_loss: '',
+    discipline_rules: [
+      { key: 'd1', label: '符合大盘趋势方向，未逆势操作', checked: false },
+      { key: 'd2', label: '单票仓位未超过上限', checked: false },
+      { key: 'd3', label: '止损位已预设，风险金额在承受范围内', checked: false },
+      { key: 'd4', label: '等待 K 线收盘确认，未提前抢跑', checked: false },
+      { key: 'd5', label: '买入前已检查财报/公告，无重大风险事项', checked: false },
+      { key: 'd6', label: '未在情绪激动时下单', checked: false },
+    ],
+    d_custom_checked: false, d_custom: '',
+    discipline_note: '',
+    emotions: [
+      { key: 'calm',    label: '冷静理性', checked: false },
+      { key: 'excited', label: '轻微兴奋', checked: false },
+      { key: 'fomo',    label: 'FOMO',    checked: false },
+      { key: 'anxious', label: '焦虑',    checked: false },
+      { key: 'panic',   label: '恐慌',    checked: false },
+    ],
+    confidence: 3,
+    market_feeling: '',
+    sell_date: '', sell_price: '', hold_days: '', pnl_amount: '', pnl_pct: '', result: '',
+    review_questions: [
+      { question: '买入时机是否合适？', answer: '' },
+      { question: '过程中是否严格执行了计划？有无临时改变止损或目标位？', answer: '' },
+      { question: '这笔交易犯了哪些错误？', answer: '' },
+      { question: '有什么可以改进的地方？', answer: '' },
+      { question: '下次遇到类似形态，会怎么做？', answer: '' },
+    ],
+  };
+}
+</script>
+
+</body>
+</html>
