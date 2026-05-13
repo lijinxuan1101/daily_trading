@@ -20,7 +20,19 @@
       "Bash(rm -rf ~/.openclaw/workspace/agent/skills/mx-skills*)",
       "Bash(rm -rf ~/mx-skills* ~/mx-data* ~/mx-search* ~/mx-xuangu* ~/mx-zixuan* ~/mx-moni*)",
       "Bash(mkdir -p /Users/lijinxuan.1101/Documents/daily_trading/.claude/skills)",
-      "Bash(cp -r __TRACKED_VAR__/__TRACKED_VAR__ /Users/lijinxuan.1101/Documents/daily_trading/.claude/skills/)"
+      "Bash(cp -r __TRACKED_VAR__/__TRACKED_VAR__ /Users/lijinxuan.1101/Documents/daily_trading/.claude/skills/)",
+      "Bash(git commit *)",
+      "Bash(export MX_APIKEY=mkt_FPH4AIAb8LXfQQw4y4y0QcjMQ4aH4mPPqu9LOMO2oCE)",
+      "Bash(python mx_data.py \"上证指数今日收盘价涨跌幅\")",
+      "Bash(mkdir -p /tmp/mx_output)",
+      "Bash(python mx_data.py \"上证指数今日收盘价涨跌幅\" /tmp/mx_output)",
+      "Bash(python mx_search.py \"今日A股大盘分析 隔夜美股港股情况\" /tmp/mx_output)",
+      "Bash(python mx_data.py \"上证指数 深证成指 创业板指 今日收盘价 涨跌幅 成交额\" /tmp/mx_output)",
+      "Bash(python mx_data.py \"道琼斯指数 纳斯达克指数 标普500 恒生指数 昨日涨跌幅\" /tmp/mx_output)",
+      "Bash(python mx_data.py \"人民币兑美元汇率 伦敦金现 WTI原油 LME铜 最新价涨跌幅\" /tmp/mx_output)",
+      "Bash(pkill -f \"python app.py\")",
+      "Bash(curl -s http://localhost:5001/api/analyze/market)",
+      "Bash(python3 -m json.tool)"
     ]
   }
 }

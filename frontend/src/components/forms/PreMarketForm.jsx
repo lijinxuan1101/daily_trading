@@ -14,9 +14,148 @@ function SectionTitle({ num, children }) {
   )
 }
 
-// ── AI 大盘分析展示区 ─────────────────────────────────────────
-function MarketAnalysisBlock({ form, onAnalyze, analyzing }) {
-  const hasData = form.markets?.some(m => m.change_pct || m.notes) || form.trend
+// ── 涨跌幅颜色 ───────────────────────────────────────────────
+function pctColor(val) {
+  if (!val) return ''
+  return val.toString().startsWith('-') ? 'text-red-500' : 'text-emerald-600'
+}
+
+// ── 行情数据 Tab ──────────────────────────────────────────────
+function MarketDataTab({ data }) {
+  if (!data) return null
+  const { a_share = [], overseas = [], commodity = [] } = data
+  const allEmpty = [...a_share, ...overseas, ...commodity].every(s => !s.rows?.length)
+  if (allEmpty) return <EmptyHint text="行情数据加载失败，请重试" />
+
+  return (
+    <div className="space-y-6">
+      {/* A 股指数 */}
+      {a_share.map((section, si) => (
+        <div key={si}>
+          <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">A 股指数</div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>指数</th>
+                {section.rows[0] && Object.keys(section.rows[0]).filter(k => k !== 'date').map(k => <th key={k}>{k}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {section.rows.map((row, ri) => (
+                <tr key={ri}>
+                  <td className="text-sm font-medium text-ink/80">{row.date}</td>
+                  {Object.entries(row).filter(([k]) => k !== 'date').map(([k, v]) => (
+                    <td key={k} className={`font-mono text-sm ${k.includes('涨跌') ? pctColor(v) : ''}`}>{v || '—'}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      {/* 海外指数 */}
+      {overseas.map((section, si) => (
+        <div key={si}>
+          <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">隔夜外盘</div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>日期</th>
+                {section.rows[0] && Object.keys(section.rows[0]).filter(k => k !== 'date').map(k => <th key={k}>{k}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {section.rows.map((row, ri) => (
+                <tr key={ri}>
+                  <td className="text-sm text-ash font-mono">{row.date}</td>
+                  {Object.entries(row).filter(([k]) => k !== 'date').map(([k, v]) => (
+                    <td key={k} className={`font-mono text-sm ${pctColor(v)}`}>{v || '—'}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      {/* 大宗商品 */}
+      {commodity.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">大宗商品 & 汇率</div>
+          <table className="data-table">
+            <thead><tr><th>品种</th><th>最新价</th><th>涨跌幅</th></tr></thead>
+            <tbody>
+              {commodity.map((section, si) => (
+                section.rows.map((row, ri) => (
+                  <tr key={`${si}-${ri}`}>
+                    <td className="text-sm font-medium text-ink/80">{section.title.split('当')[0]}</td>
+                    <td className="font-mono text-sm">{row['最新价'] || row[Object.keys(row).find(k=>k!=='date')] || '—'}</td>
+                    <td className={`font-mono text-sm ${pctColor(row['涨跌幅'])}`}>{row['涨跌幅'] || '—'}</td>
+                  </tr>
+                ))
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 资讯 Tab ──────────────────────────────────────────────────
+function NewsTab({ news }) {
+  const [expanded, setExpanded] = useState(null)
+  if (!news?.length) return <EmptyHint text="暂无资讯数据" />
+
+  return (
+    <div className="space-y-2">
+      {news.map((item) => (
+        <div key={item.index}
+          className="rounded-xl border cursor-pointer transition-all duration-150"
+          style={{ borderColor: expanded === item.index ? '#C8622A' : '#E5DDD0', background: expanded === item.index ? 'white' : '#FDFAF6' }}
+          onClick={() => setExpanded(expanded === item.index ? null : item.index)}
+        >
+          <div className="flex items-start justify-between gap-3 px-4 py-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                <span className="text-xs font-mono text-ash">{item.date}</span>
+                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#F5F1EB', color: '#9C8B7A' }}>{item.type}</span>
+              </div>
+              <p className="text-sm font-medium text-ink leading-snug">{item.title}</p>
+            </div>
+            <svg className="flex-shrink-0 mt-1 transition-transform duration-150 text-ash"
+              style={{ transform: expanded === item.index ? 'rotate(90deg)' : 'none' }}
+              width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 3l4 4-4 4"/>
+            </svg>
+          </div>
+          {expanded === item.index && item.content && (
+            <div className="px-4 pb-4 pt-0">
+              <div style={{ borderTop: '1px solid #F5F1EB', paddingTop: '12px' }}>
+                <p className="font-body text-sm text-ink/80 leading-relaxed whitespace-pre-line">{item.content}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── 空状态 ────────────────────────────────────────────────────
+function EmptyHint({ text }) {
+  return (
+    <div className="rounded-xl border border-dashed border-smoke bg-paper/60 py-10 text-center">
+      <p className="text-sm text-ash">{text}</p>
+    </div>
+  )
+}
+
+// ── AI 大盘分析展示区（双 Tab） ───────────────────────────────
+function MarketAnalysisBlock({ aiResult, onAnalyze, analyzing }) {
+  const [activeTab, setActiveTab] = useState('market')
+  const hasData = !!aiResult
 
   return (
     <div className="form-section">
@@ -27,12 +166,9 @@ function MarketAnalysisBlock({ form, onAnalyze, analyzing }) {
             <span className="section-num" style={{ background: '#C8622A' }}>AI</span>
             大盘基本信息
           </div>
-          <span className="text-xs text-ash px-2 py-0.5 rounded-full border border-smoke bg-paper">
-            由 Claude 填充
-          </span>
+          {hasData && <span className="text-xs text-ash px-2 py-0.5 rounded-full border border-smoke bg-paper">已更新</span>}
         </div>
 
-        {/* 分析按钮 */}
         <button
           type="button"
           onClick={onAnalyze}
@@ -45,118 +181,63 @@ function MarketAnalysisBlock({ form, onAnalyze, analyzing }) {
         >
           {analyzing ? (
             <>
-              <span className="inline-block w-3.5 h-3.5 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
+              <span className="inline-block w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                style={{ borderColor: 'rgba(255,255,255,0.25)', borderTopColor: 'white' }} />
               分析中…
             </>
           ) : (
             <>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="7" cy="7" r="5.5" />
-                <path d="M4.5 7c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5" />
-                <circle cx="7" cy="7" r="1" fill="currentColor" stroke="none" />
+                <path d="M7 1.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z"/>
+                <path d="M7 4.5v3l2 1.5"/>
               </svg>
-              Claude 分析大盘
+              {hasData ? '重新分析' : '获取大盘数据'}
             </>
           )}
         </button>
       </div>
 
-      {/* 无数据状态 */}
-      {!hasData && (
+      {/* 无数据占位 */}
+      {!hasData && !analyzing && (
         <div className="rounded-xl border border-dashed border-smoke bg-paper/60 py-10 text-center">
-          <div className="w-10 h-10 rounded-full bg-paper border border-smoke flex items-center justify-center mx-auto mb-3">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#9C8B7A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="9" cy="9" r="7" />
-              <path d="M6 9c0-1.66 1.34-3 3-3s3 1.34 3 3-1.34 3-3 3" />
-              <circle cx="9" cy="9" r="1.2" fill="#9C8B7A" stroke="none" />
-            </svg>
-          </div>
-          <p className="text-sm text-ash">点击「Claude 分析大盘」自动填充隔夜外盘、重要事件和大盘研判</p>
-          <p className="text-xs text-ash/60 mt-1">接入 Skill 后启用</p>
+          <p className="text-sm text-ash">点击「获取大盘数据」拉取今日行情与资讯</p>
+          <p className="text-xs mt-1" style={{ color: '#C8C0B5' }}>由东方财富妙想 Skills 提供</p>
         </div>
       )}
 
-      {/* 有数据时展示 */}
+      {/* 加载中占位 */}
+      {analyzing && (
+        <div className="rounded-xl border border-smoke bg-paper/40 py-10 text-center">
+          <div className="loading-spinner mx-auto mb-3" />
+          <p className="text-sm text-ash">正在拉取行情数据与今日资讯…</p>
+        </div>
+      )}
+
+      {/* 双 Tab 内容 */}
       {hasData && (
-        <div className="space-y-5">
+        <div>
+          {/* Tab 切换 */}
+          <div className="flex gap-1 mb-5" style={{ borderBottom: '1px solid #E5DDD0' }}>
+            {[
+              { key: 'market', label: '行情数据', count: null },
+              { key: 'news',   label: '资讯',     count: aiResult.news?.length },
+            ].map(t => (
+              <button
+                key={t.key}
+                type="button"
+                className={`tab ${activeTab === t.key ? 'active' : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label}
+                {t.count != null && (
+                  <span className="tab-count">{t.count}</span>
+                )}
+              </button>
+            ))}
+          </div>
 
-          {/* 隔夜外盘 */}
-          {form.markets?.some(m => m.change_pct || m.notes) && (
-            <div>
-              <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">一、隔夜外盘</div>
-              <table className="data-table">
-                <thead><tr><th>市场</th><th>涨跌幅</th><th>关键信息</th></tr></thead>
-                <tbody>
-                  {form.markets.filter(m => m.change_pct || m.notes).map(mkt => (
-                    <tr key={mkt.key}>
-                      <td className="text-sm font-medium text-ink/80">{mkt.label}</td>
-                      <td className={`font-mono text-sm ${mkt.change_pct?.includes('-') ? 'text-red-500' : 'text-emerald-600'}`}>
-                        {mkt.change_pct || '—'}
-                      </td>
-                      <td className="text-sm text-ink/70">{mkt.notes || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {form.overseas_impact && (
-                <p className="mt-2 text-sm text-ink/70 leading-relaxed">
-                  {form.overseas_sentiment && <span className="font-semibold text-ink mr-1">[{form.overseas_sentiment}]</span>}
-                  {form.overseas_impact}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* 今日重要事件 */}
-          {form.events?.some(e => e.checked || e.value) && (
-            <div>
-              <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">二、今日重要事件</div>
-              <div className="space-y-1.5">
-                {form.events.filter(e => e.checked || e.value).map(evt => (
-                  <div key={evt.key} className="flex items-start gap-2 text-sm">
-                    <span className="mt-0.5 w-4 h-4 flex-shrink-0 rounded flex items-center justify-center" style={{ background: evt.checked ? '#C8622A' : '#E5DDD0' }}>
-                      {evt.checked && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4l2 2 3-3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                    </span>
-                    <span>
-                      <span className="font-medium text-ink/80">{evt.label}</span>
-                      {evt.value && <span className="text-ash ml-1.5">{evt.value}</span>}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 大盘研判 */}
-          {(form.indices?.some(i => i.close) || form.trend) && (
-            <div>
-              <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">三、大盘研判</div>
-              {form.indices?.some(i => i.close) && (
-                <table className="data-table mb-3">
-                  <thead><tr><th>指数</th><th>收盘价</th><th>涨跌幅</th><th>成交量</th></tr></thead>
-                  <tbody>
-                    {form.indices.filter(i => i.close || i.change).map(idx => (
-                      <tr key={idx.key}>
-                        <td className="text-sm font-medium text-ink/80">{idx.label}</td>
-                        <td className="font-mono text-sm">{idx.close || '—'}</td>
-                        <td className={`font-mono text-sm ${idx.change?.includes('-') ? 'text-red-500' : 'text-emerald-600'}`}>{idx.change || '—'}</td>
-                        <td className="font-mono text-sm text-ash">{idx.volume || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <div className="flex flex-wrap gap-4 text-sm">
-                {form.trend && <span><span className="text-ash">趋势：</span><span className="font-semibold">{form.trend}</span></span>}
-                {form.volume_forecast && <span><span className="text-ash">量能：</span><span className="font-semibold">{form.volume_forecast}</span></span>}
-                {form.support && <span><span className="text-ash">支撑：</span><span className="font-mono">{form.support}</span></span>}
-                {form.resistance && <span><span className="text-ash">压力：</span><span className="font-mono">{form.resistance}</span></span>}
-              </div>
-              {form.trend_reason && (
-                <p className="mt-2 text-sm text-ink/70 leading-relaxed">{form.trend_reason}</p>
-              )}
-            </div>
-          )}
+          {activeTab === 'market' && <MarketDataTab data={aiResult.market_data} />}
+          {activeTab === 'news'   && <NewsTab news={aiResult.news} />}
         </div>
       )}
     </div>
@@ -168,6 +249,7 @@ export default function PreMarketForm({ onSubmit, onCancel }) {
   const [form, setForm] = useState(defaultPMForm)
   const [submitting, setSubmitting] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  const [aiResult, setAiResult] = useState(null)
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
 
@@ -191,14 +273,15 @@ export default function PreMarketForm({ onSubmit, onCancel }) {
 
   const removeWatchlist = (i) => setForm(f => ({ ...f, watchlist: f.watchlist.filter((_, idx) => idx !== i) }))
 
-  // 预留：Skill 接入后在这里调用 Claude API，把返回结果 merge 进 form
+  // 调用后端 /api/analyze/market，拉取妙想行情+资讯
   const handleAnalyze = async () => {
     setAnalyzing(true)
     try {
-      // TODO: 调用 Claude Skill 获取大盘分析数据
-      // const aiData = await callMarketAnalysisSkill(form.date)
-      // setForm(f => ({ ...f, ...aiData }))
-      await new Promise(r => setTimeout(r, 800)) // placeholder
+      const res = await fetch('/api/analyze/market')
+      if (!res.ok) throw new Error(await res.text())
+      setAiResult(await res.json())
+    } catch (e) {
+      console.error(e)
     } finally {
       setAnalyzing(false)
     }
@@ -242,9 +325,9 @@ export default function PreMarketForm({ onSubmit, onCancel }) {
           </div>
         </div>
 
-        {/* AI 大盘分析区（一、二、三节） */}
+        {/* AI 大盘分析区（双 Tab） */}
         <MarketAnalysisBlock
-          form={form}
+          aiResult={aiResult}
           onAnalyze={handleAnalyze}
           analyzing={analyzing}
         />
