@@ -17,3 +17,6 @@ static/dist/
 
 # OS
 .DS_Store
+
+# Skills node_modules（体积大，各自 npm install）
+.claude/skills/*/node_modules/

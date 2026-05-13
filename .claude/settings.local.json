@@ -12,7 +12,15 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git branch *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(curl -sL \"https://marketing.dfcfw.com/res/download/A620260508VGX4Z0.md\" -o /tmp/miaoxiang_skill.md)",
+      "Read(//tmp/**)",
+      "Bash(rm -rf ~/.openclaw/skills/mx-skills*)",
+      "Bash(rm -rf ~/.openclaw/workspace/skills/mx-skills*)",
+      "Bash(rm -rf ~/.openclaw/workspace/agent/skills/mx-skills*)",
+      "Bash(rm -rf ~/mx-skills* ~/mx-data* ~/mx-search* ~/mx-xuangu* ~/mx-zixuan* ~/mx-moni*)",
+      "Bash(mkdir -p /Users/lijinxuan.1101/Documents/daily_trading/.claude/skills)",
+      "Bash(cp -r __TRACKED_VAR__/__TRACKED_VAR__ /Users/lijinxuan.1101/Documents/daily_trading/.claude/skills/)"
     ]
   }
 }

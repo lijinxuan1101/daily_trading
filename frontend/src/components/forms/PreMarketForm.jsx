@@ -14,23 +14,162 @@ function SectionTitle({ num, children }) {
   )
 }
 
+// ── AI 大盘分析展示区 ─────────────────────────────────────────
+function MarketAnalysisBlock({ form, onAnalyze, analyzing }) {
+  const hasData = form.markets?.some(m => m.change_pct || m.notes) || form.trend
+
+  return (
+    <div className="form-section">
+      {/* 标题栏 */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <div className="section-title mb-0">
+            <span className="section-num" style={{ background: '#C8622A' }}>AI</span>
+            大盘基本信息
+          </div>
+          <span className="text-xs text-ash px-2 py-0.5 rounded-full border border-smoke bg-paper">
+            由 Claude 填充
+          </span>
+        </div>
+
+        {/* 分析按钮 */}
+        <button
+          type="button"
+          onClick={onAnalyze}
+          disabled={analyzing}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 border"
+          style={analyzing
+            ? { background: '#F5F1EB', color: '#9C8B7A', borderColor: '#E5DDD0', cursor: 'not-allowed' }
+            : { background: '#1C1917', color: 'white', borderColor: '#1C1917' }
+          }
+        >
+          {analyzing ? (
+            <>
+              <span className="inline-block w-3.5 h-3.5 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
+              分析中…
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="7" cy="7" r="5.5" />
+                <path d="M4.5 7c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5" />
+                <circle cx="7" cy="7" r="1" fill="currentColor" stroke="none" />
+              </svg>
+              Claude 分析大盘
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* 无数据状态 */}
+      {!hasData && (
+        <div className="rounded-xl border border-dashed border-smoke bg-paper/60 py-10 text-center">
+          <div className="w-10 h-10 rounded-full bg-paper border border-smoke flex items-center justify-center mx-auto mb-3">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#9C8B7A" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="9" cy="9" r="7" />
+              <path d="M6 9c0-1.66 1.34-3 3-3s3 1.34 3 3-1.34 3-3 3" />
+              <circle cx="9" cy="9" r="1.2" fill="#9C8B7A" stroke="none" />
+            </svg>
+          </div>
+          <p className="text-sm text-ash">点击「Claude 分析大盘」自动填充隔夜外盘、重要事件和大盘研判</p>
+          <p className="text-xs text-ash/60 mt-1">接入 Skill 后启用</p>
+        </div>
+      )}
+
+      {/* 有数据时展示 */}
+      {hasData && (
+        <div className="space-y-5">
+
+          {/* 隔夜外盘 */}
+          {form.markets?.some(m => m.change_pct || m.notes) && (
+            <div>
+              <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">一、隔夜外盘</div>
+              <table className="data-table">
+                <thead><tr><th>市场</th><th>涨跌幅</th><th>关键信息</th></tr></thead>
+                <tbody>
+                  {form.markets.filter(m => m.change_pct || m.notes).map(mkt => (
+                    <tr key={mkt.key}>
+                      <td className="text-sm font-medium text-ink/80">{mkt.label}</td>
+                      <td className={`font-mono text-sm ${mkt.change_pct?.includes('-') ? 'text-red-500' : 'text-emerald-600'}`}>
+                        {mkt.change_pct || '—'}
+                      </td>
+                      <td className="text-sm text-ink/70">{mkt.notes || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {form.overseas_impact && (
+                <p className="mt-2 text-sm text-ink/70 leading-relaxed">
+                  {form.overseas_sentiment && <span className="font-semibold text-ink mr-1">[{form.overseas_sentiment}]</span>}
+                  {form.overseas_impact}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 今日重要事件 */}
+          {form.events?.some(e => e.checked || e.value) && (
+            <div>
+              <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">二、今日重要事件</div>
+              <div className="space-y-1.5">
+                {form.events.filter(e => e.checked || e.value).map(evt => (
+                  <div key={evt.key} className="flex items-start gap-2 text-sm">
+                    <span className="mt-0.5 w-4 h-4 flex-shrink-0 rounded flex items-center justify-center" style={{ background: evt.checked ? '#C8622A' : '#E5DDD0' }}>
+                      {evt.checked && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4l2 2 3-3" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </span>
+                    <span>
+                      <span className="font-medium text-ink/80">{evt.label}</span>
+                      {evt.value && <span className="text-ash ml-1.5">{evt.value}</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 大盘研判 */}
+          {(form.indices?.some(i => i.close) || form.trend) && (
+            <div>
+              <div className="text-xs font-semibold text-ash uppercase tracking-widest mb-2">三、大盘研判</div>
+              {form.indices?.some(i => i.close) && (
+                <table className="data-table mb-3">
+                  <thead><tr><th>指数</th><th>收盘价</th><th>涨跌幅</th><th>成交量</th></tr></thead>
+                  <tbody>
+                    {form.indices.filter(i => i.close || i.change).map(idx => (
+                      <tr key={idx.key}>
+                        <td className="text-sm font-medium text-ink/80">{idx.label}</td>
+                        <td className="font-mono text-sm">{idx.close || '—'}</td>
+                        <td className={`font-mono text-sm ${idx.change?.includes('-') ? 'text-red-500' : 'text-emerald-600'}`}>{idx.change || '—'}</td>
+                        <td className="font-mono text-sm text-ash">{idx.volume || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div className="flex flex-wrap gap-4 text-sm">
+                {form.trend && <span><span className="text-ash">趋势：</span><span className="font-semibold">{form.trend}</span></span>}
+                {form.volume_forecast && <span><span className="text-ash">量能：</span><span className="font-semibold">{form.volume_forecast}</span></span>}
+                {form.support && <span><span className="text-ash">支撑：</span><span className="font-mono">{form.support}</span></span>}
+                {form.resistance && <span><span className="text-ash">压力：</span><span className="font-mono">{form.resistance}</span></span>}
+              </div>
+              {form.trend_reason && (
+                <p className="mt-2 text-sm text-ink/70 leading-relaxed">{form.trend_reason}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 主表单 ────────────────────────────────────────────────────
 export default function PreMarketForm({ onSubmit, onCancel }) {
   const [form, setForm] = useState(defaultPMForm)
   const [submitting, setSubmitting] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
-
-  const setMarket = (i, field, val) => setForm(f => ({
-    ...f, markets: f.markets.map((m, idx) => idx === i ? { ...m, [field]: val } : m)
-  }))
-
-  const setEvent = (i, field, val) => setForm(f => ({
-    ...f, events: f.events.map((e, idx) => idx === i ? { ...e, [field]: val } : e)
-  }))
-
-  const setIndex = (i, field, val) => setForm(f => ({
-    ...f, indices: f.indices.map((e, idx) => idx === i ? { ...e, [field]: val } : e)
-  }))
 
   const setPosition = (i, field, val) => setForm(f => ({
     ...f, positions: f.positions.map((p, idx) => idx === i ? { ...p, [field]: val } : p)
@@ -51,6 +190,19 @@ export default function PreMarketForm({ onSubmit, onCancel }) {
   }))
 
   const removeWatchlist = (i) => setForm(f => ({ ...f, watchlist: f.watchlist.filter((_, idx) => idx !== i) }))
+
+  // 预留：Skill 接入后在这里调用 Claude API，把返回结果 merge 进 form
+  const handleAnalyze = async () => {
+    setAnalyzing(true)
+    try {
+      // TODO: 调用 Claude Skill 获取大盘分析数据
+      // const aiData = await callMarketAnalysisSkill(form.date)
+      // setForm(f => ({ ...f, ...aiData }))
+      await new Promise(r => setTimeout(r, 800)) // placeholder
+    } finally {
+      setAnalyzing(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -90,94 +242,12 @@ export default function PreMarketForm({ onSubmit, onCancel }) {
           </div>
         </div>
 
-        {/* 一、隔夜外盘 */}
-        <div className="form-section">
-          <SectionTitle num="一">隔夜外盘</SectionTitle>
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead><tr><th>市场</th><th>涨跌幅</th><th>关键信息</th></tr></thead>
-              <tbody>
-                {form.markets.map((mkt, i) => (
-                  <tr key={mkt.key}>
-                    <td className="font-medium text-ink/80 w-36 text-sm">{mkt.label}</td>
-                    <td><input value={mkt.change_pct} onChange={e => setMarket(i, 'change_pct', e.target.value)} className="form-input-sm w-24" placeholder="+1.2%" /></td>
-                    <td><input value={mkt.notes} onChange={e => setMarket(i, 'notes', e.target.value)} className="form-input-sm w-full" placeholder="关键信息…" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-5">
-            <label className="form-label">外盘对今日 A 股的潜在影响</label>
-            <div className="flex gap-2 mb-2">
-              {['正面','中性','负面'].map(s => <Tag key={s} label={s} active={form.overseas_sentiment === s} onClick={() => set('overseas_sentiment', s)} />)}
-            </div>
-            <textarea value={form.overseas_impact} onChange={e => set('overseas_impact', e.target.value)} className="form-textarea" rows={2} placeholder="简要说明影响逻辑…" />
-          </div>
-        </div>
-
-        {/* 二、今日重要事件 */}
-        <div className="form-section">
-          <SectionTitle num="二">今日重要事件</SectionTitle>
-          <div className="space-y-3">
-            {form.events.map((evt, i) => (
-              <div key={evt.key} className="flex items-start gap-3">
-                <input type="checkbox" checked={evt.checked} onChange={e => setEvent(i, 'checked', e.target.checked)} className="form-checkbox mt-0.5" />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-ink/80 mb-1">{evt.label}</div>
-                  <input value={evt.value} onChange={e => setEvent(i, 'value', e.target.value)} className="form-input-sm w-full" placeholder={evt.placeholder} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 三、大盘研判 */}
-        <div className="form-section">
-          <SectionTitle num="三">大盘研判</SectionTitle>
-          <p className="text-xs text-ash mb-3">昨日收盘数据</p>
-          <div className="overflow-x-auto mb-5">
-            <table className="data-table">
-              <thead><tr><th>指数</th><th>收盘价</th><th>涨跌幅</th><th>成交量</th></tr></thead>
-              <tbody>
-                {form.indices.map((idx, i) => (
-                  <tr key={idx.key}>
-                    <td className="font-medium text-ink/80 w-28 text-sm">{idx.label}</td>
-                    <td><input value={idx.close} onChange={e => setIndex(i, 'close', e.target.value)} className="form-input-sm w-24" placeholder="点位" /></td>
-                    <td><input value={idx.change} onChange={e => setIndex(i, 'change', e.target.value)} className="form-input-sm w-20" placeholder="±%" /></td>
-                    <td><input value={idx.volume} onChange={e => setIndex(i, 'volume', e.target.value)} className="form-input-sm w-28" placeholder="亿元" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="form-label">趋势方向</label>
-              <div className="flex gap-2">
-                {['强势','震荡','偏弱'].map(t => <Tag key={t} label={t} active={form.trend === t} onClick={() => set('trend', t)} />)}
-              </div>
-            </div>
-            <div>
-              <label className="form-label">量能预估</label>
-              <div className="flex gap-2">
-                {['放量','持平','缩量'].map(v => <Tag key={v} label={v} active={form.volume_forecast === v} onClick={() => set('volume_forecast', v)} />)}
-              </div>
-            </div>
-            <div>
-              <label className="form-label">关键支撑位</label>
-              <input value={form.support} onChange={e => set('support', e.target.value)} className="form-input" placeholder="点位" />
-            </div>
-            <div>
-              <label className="form-label">关键压力位</label>
-              <input value={form.resistance} onChange={e => set('resistance', e.target.value)} className="form-input" placeholder="点位" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <label className="form-label">判断理由</label>
-            <textarea value={form.trend_reason} onChange={e => set('trend_reason', e.target.value)} className="form-textarea" rows={3} placeholder="在此填写判断依据…" />
-          </div>
-        </div>
+        {/* AI 大盘分析区（一、二、三节） */}
+        <MarketAnalysisBlock
+          form={form}
+          onAnalyze={handleAnalyze}
+          analyzing={analyzing}
+        />
 
         {/* 四、板块与热点 */}
         <div className="form-section">
@@ -212,11 +282,11 @@ export default function PreMarketForm({ onSubmit, onCancel }) {
               </div>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 {[
-                  { f: 'name',       label: '标的名称',           ph: '名称' },
-                  { f: 'code',       label: '代码',               ph: '000001' },
-                  { f: 'cost',       label: '持仓成本',           ph: '¥' },
-                  { f: 'pnl_pct',    label: '当前浮盈/亏',       ph: '%' },
-                  { f: 'stop_loss',  label: '止损位',             ph: '¥' },
+                  { f: 'name',       label: '标的名称',                   ph: '名称' },
+                  { f: 'code',       label: '代码',                       ph: '000001' },
+                  { f: 'cost',       label: '持仓成本',                   ph: '¥' },
+                  { f: 'pnl_pct',    label: '当前浮盈/亏',               ph: '%' },
+                  { f: 'stop_loss',  label: '止损位',                     ph: '¥' },
                   { f: 'key_levels', label: '今日关键价位（支撑/压力）', ph: '¥ / ¥' },
                 ].map(({ f, label, ph }) => (
                   <div key={f}>
