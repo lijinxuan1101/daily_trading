@@ -15,6 +15,13 @@ const IconLog = () => (
     <path d="M2 4h11M2 7.5h7M2 11h5"/><circle cx="12" cy="11" r="2.5"/><path d="M12 9.5V11h1.5" strokeLinecap="round"/>
   </svg>
 )
+const IconHoldings = () => (
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1.5" y="5" width="12" height="8.5" rx="1.5"/>
+    <path d="M4.5 5V3.5a3 3 0 016 0V5"/>
+    <path d="M5.5 9h4M7.5 7.5V10.5"/>
+  </svg>
+)
 
 export default function Sidebar({ page, onNavigate, pmCount, tlCount }) {
   return (
@@ -49,6 +56,14 @@ export default function Sidebar({ page, onNavigate, pmCount, tlCount }) {
         </button>
         <button onClick={() => onNavigate('new-trade-log')} className={`nav-item ${page === 'new-trade-log' ? 'active' : ''}`}>
           <IconLog /> <span>交易日志</span>
+        </button>
+
+        <div className="pt-4 pb-1 px-3">
+          <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase' }}>持仓</span>
+        </div>
+
+        <button onClick={() => onNavigate('holdings')} className={`nav-item ${page === 'holdings' ? 'active' : ''}`}>
+          <IconHoldings /> <span>我的持仓</span>
         </button>
       </nav>
 

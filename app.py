@@ -39,6 +39,23 @@ def init_db():
             created_at   TEXT DEFAULT (datetime('now', 'localtime'))
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS holdings (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker       TEXT NOT NULL,
+            ticker_code  TEXT NOT NULL,
+            cost_price   REAL,
+            quantity     REAL,
+            stop_loss    REAL,
+            target1      REAL,
+            target2      REAL,
+            open_date    TEXT,
+            notes        TEXT,
+            current_price REAL,
+            refreshed_at  TEXT,
+            created_at   TEXT DEFAULT (datetime('now', 'localtime'))
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -174,6 +191,130 @@ def delete_trade_log(log_id):
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
+
+
+# ── Holdings ─────────────────────────────────────────────────────────────────
+
+def holding_row(row):
+    cost  = row["cost_price"]  or 0
+    qty   = row["quantity"]    or 0
+    cur   = row["current_price"]
+    total_cost = round(cost * qty, 2) if cost and qty else None
+    pnl_amount = round((cur - cost) * qty, 2) if cur and cost and qty else None
+    pnl_pct    = round((cur - cost) / cost * 100, 2) if cur and cost else None
+    return {
+        "id":            row["id"],
+        "ticker":        row["ticker"],
+        "ticker_code":   row["ticker_code"],
+        "cost_price":    cost,
+        "quantity":      qty,
+        "total_cost":    total_cost,
+        "stop_loss":     row["stop_loss"],
+        "target1":       row["target1"],
+        "target2":       row["target2"],
+        "open_date":     row["open_date"],
+        "notes":         row["notes"],
+        "current_price": cur,
+        "pnl_amount":    pnl_amount,
+        "pnl_pct":       pnl_pct,
+        "refreshed_at":  row["refreshed_at"],
+        "created_at":    row["created_at"],
+    }
+
+
+@app.route("/api/holdings", methods=["GET"])
+def list_holdings():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM holdings ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
+    return jsonify([holding_row(r) for r in rows])
+
+
+@app.route("/api/holdings", methods=["POST"])
+def create_holding():
+    b = request.get_json()
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO holdings (ticker,ticker_code,cost_price,quantity,stop_loss,target1,target2,open_date,notes) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (b.get("ticker"), b.get("ticker_code"),
+         b.get("cost_price"), b.get("quantity"),
+         b.get("stop_loss"), b.get("target1"), b.get("target2"),
+         b.get("open_date"), b.get("notes")),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/holdings/<int:hid>", methods=["PUT"])
+def update_holding(hid):
+    b = request.get_json()
+    conn = get_db()
+    conn.execute(
+        "UPDATE holdings SET ticker=?,ticker_code=?,cost_price=?,quantity=?,"
+        "stop_loss=?,target1=?,target2=?,open_date=?,notes=? WHERE id=?",
+        (b.get("ticker"), b.get("ticker_code"),
+         b.get("cost_price"), b.get("quantity"),
+         b.get("stop_loss"), b.get("target1"), b.get("target2"),
+         b.get("open_date"), b.get("notes"), hid),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/holdings/<int:hid>", methods=["DELETE"])
+def delete_holding(hid):
+    conn = get_db()
+    conn.execute("DELETE FROM holdings WHERE id=?", (hid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/holdings/refresh", methods=["POST"])
+def refresh_holdings():
+    """Pull current prices for all holdings via mx-data."""
+    if not MX_APIKEY:
+        return jsonify({"error": "MX_APIKEY 未配置"}), 400
+    conn = get_db()
+    rows = conn.execute("SELECT id, ticker FROM holdings").fetchall()
+    if not rows:
+        conn.close()
+        return jsonify({"ok": True, "updated": 0})
+
+    mx_data = os.path.join(SKILLS_DIR, "mx-data", "mx_data.py")
+    names   = " ".join(r["ticker"] for r in rows)
+    raw     = run_skill(mx_data, f"{names} 最新价")
+
+    # parse: find rows with 最新价 column
+    updated = 0
+    for section in parse_mx_data_output(raw):
+        for row_data in section.get("rows", []):
+            price_str = row_data.get("最新价") or row_data.get("最新价(元)")
+            label     = row_data.get("date", "")
+            if not price_str:
+                continue
+            try:
+                price = float(price_str.replace(",", ""))
+            except ValueError:
+                continue
+            # match by ticker name appearing in label
+            for h in rows:
+                if h["ticker"] in label:
+                    conn.execute(
+                        "UPDATE holdings SET current_price=?, refreshed_at=datetime('now','localtime') WHERE id=?",
+                        (price, h["id"])
+                    )
+                    updated += 1
+
+    conn.commit()
+    result_rows = conn.execute("SELECT * FROM holdings ORDER BY created_at DESC").fetchall()
+    conn.close()
+    return jsonify({"ok": True, "updated": updated, "holdings": [holding_row(r) for r in result_rows]})
 
 
 # ── Market Analysis (Skills) ─────────────────────────────────────────────────

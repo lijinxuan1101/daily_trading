@@ -6,6 +6,7 @@ import TradeLogForm from './components/forms/TradeLogForm'
 import PreMarketView from './components/views/PreMarketView'
 import TradeLogView from './components/views/TradeLogView'
 import Toast from './components/Toast'
+import HoldingsPage from './components/holdings/HoldingsPage'
 import * as api from './api'
 
 export default function App() {
@@ -111,6 +112,9 @@ export default function App() {
         )}
         {page === 'view-trade-log' && currentEntry && (
           <TradeLogView entry={currentEntry} onBack={() => navigate('home')} />
+        )}
+        {page === 'holdings' && (
+          <HoldingsPage />
         )}
       </main>
 
