@@ -281,35 +281,44 @@ def refresh_holdings():
     if not MX_APIKEY:
         return jsonify({"error": "MX_APIKEY 未配置"}), 400
     conn = get_db()
-    rows = conn.execute("SELECT id, ticker FROM holdings").fetchall()
+    rows = conn.execute("SELECT id, ticker, ticker_code FROM holdings").fetchall()
     if not rows:
         conn.close()
         return jsonify({"ok": True, "updated": 0})
 
     mx_data = os.path.join(SKILLS_DIR, "mx-data", "mx_data.py")
-    names   = " ".join(r["ticker"] for r in rows)
-    raw     = run_skill(mx_data, f"{names} 最新价")
+    # Use ticker_code when available (more reliable), supplement with names
+    identifiers = []
+    for r in rows:
+        if r["ticker_code"]:
+            identifiers.append(r["ticker_code"])
+        elif r["ticker"]:
+            identifiers.append(r["ticker"])
+    query = " ".join(identifiers) + " 最新价"
+    raw = run_skill(mx_data, query)
 
-    # parse: find rows with 最新价 column
     updated = 0
     for section in parse_mx_data_output(raw):
         for row_data in section.get("rows", []):
             price_str = row_data.get("最新价") or row_data.get("最新价(元)")
-            label     = row_data.get("date", "")
             if not price_str:
                 continue
             try:
                 price = float(price_str.replace(",", ""))
             except ValueError:
                 continue
-            # match by ticker name appearing in label
+            # match against all cell values — covers both code and name columns
+            row_text = " ".join(str(v) for v in row_data.values())
             for h in rows:
-                if h["ticker"] in label:
+                code_match = h["ticker_code"] and h["ticker_code"] in row_text
+                name_match = h["ticker"] and h["ticker"] in row_text
+                if code_match or name_match:
                     conn.execute(
                         "UPDATE holdings SET current_price=?, refreshed_at=datetime('now','localtime') WHERE id=?",
                         (price, h["id"])
                     )
                     updated += 1
+                    break
 
     conn.commit()
     result_rows = conn.execute("SELECT * FROM holdings ORDER BY created_at DESC").fetchall()
